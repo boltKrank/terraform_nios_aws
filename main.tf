@@ -104,6 +104,7 @@ resource "aws_eip" "mgmt_eip" {
 resource "aws_eip_association" "mgmt_assoc" {
   allocation_id        = aws_eip.mgmt_eip.id
   network_interface_id = aws_network_interface.mgmt.id
+  instance_id = aws_instance.nios_master.id
 }
 
 resource "aws_network_interface" "lan" {
@@ -137,17 +138,20 @@ resource "aws_instance" "nios_master" {
   tags = { Name = "${var.name_prefix}-nios-master" }
 
   user_data = <<-EOF
-    #cloud-config
-    remote_console_enabled: true
+    #infoblox-config
+    set_grid_master: true
+    remote_console_enabled: y
     default_admin_password: "${var.infoblox_password}"
-    temp_license: grid dns dhcp
+    temp_license: dns dhcp enterprise nios IB-V825 
+  EOF
+
 
     # If you need to override NIC settings inside the appliance:
-    network_mgmt:
-      ip_address: "${aws_eip.mgmt_eip.public_ip}"
-      netmask: "255.255.255.0"
-      gateway: "${cidrhost("${aws_subnet.mgmt.cidr_block}",1)}"
-    EOF
+    # network_mgmt:
+    #   ip_address: "${aws_eip.mgmt_eip.public_ip}"
+    #   netmask: "255.255.255.0"
+    #   gateway: "${cidrhost("${aws_subnet.mgmt.cidr_block}",1)}"
+    # EOF
 
 
   # Wait until AWS reports 2/2 status checks OK
@@ -162,7 +166,7 @@ resource "aws_instance" "nios_master" {
       echo "Instance ${self.id} not ready yet—sleeping 15 s before retry…"
       sleep 15
     done
-    echo "✅ Instance ${self.id} is now healthy."
+    echo "Instance ${self.id} is now healthy."
   EOF
 }
 
@@ -229,7 +233,7 @@ data "http" "join_token" {
 }
 
 locals {
-  # read the HTTP response body (was `body` in v2, now `response_body`)
+  # read the HTTP response body (was `body` in v2, now `response_body`)2  
   join_token = jsondecode(data.http.join_token.response_body).token
 }
 
